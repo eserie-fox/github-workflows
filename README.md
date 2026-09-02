@@ -27,8 +27,9 @@ protected and reviewed.
 
 This repository stores no project secrets, variables, environments, or publishing identity.
 PyPI Trusted Publishing cannot currently trust a reusable workflow directly, so each project
-keeps a thin `publish.yml` whose OIDC-enabled publish job downloads the shared build artifact
-and invokes the PyPI publishing action locally.
+keeps a thin `publish.yml` whose OIDC-enabled jobs download the shared build artifact and invoke
+the publishing action locally. The projects use a simple convention: pushes to `main` and manual
+runs publish to TestPyPI, while `v*` tag pushes independently build and publish to PyPI.
 
 The workflows intentionally support only these current conventions and do not establish a
 broad compatibility or customization framework.
