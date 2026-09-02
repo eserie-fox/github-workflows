@@ -3,14 +3,15 @@
 This repository contains small reusable GitHub Actions implementations for public Python
 projects. It currently provides:
 
-- `.github/workflows/python-ci.yml`: locked dependency installation, Ruff format/lint checks,
-  and pytest on Python 3.11;
+- `.github/workflows/python-ci.yml`: dependency installation, Ruff format/lint checks, and
+  pytest on Python 3.11;
 - `.github/workflows/python-build.yml`: standard sdist and wheel builds uploaded as the
   `python-package-distributions` artifact.
 
-Consumers are expected to commit an up-to-date `uv.lock`, expose Ruff and pytest through a
-`dev` optional dependency, keep their Ruff and pytest settings in `pyproject.toml`, and support
-Python 3.11.
+Consumers may commit an up-to-date `uv.lock` or ignore it. CI enforces `--locked` when the
+lockfile is present and resolves dependencies normally when it is absent. Consumers expose Ruff
+and pytest through a `dev` optional dependency, keep their Ruff and pytest settings in
+`pyproject.toml`, and support Python 3.11.
 
 A minimal caller job is:
 
