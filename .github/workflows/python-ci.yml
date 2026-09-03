@@ -2,6 +2,16 @@ name: Python CI
 
 on:
   workflow_call:
+    inputs:
+      test-targets:
+        description: JSON array of runner and Python-version test targets
+        required: true
+        type: string
+      typecheck:
+        description: Run mypy as part of format-lint
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -23,13 +33,13 @@ jobs:
       - name: Install Python
         run: uv python install 3.11
 
+      - name: Install locked dependencies
+        if: ${{ hashFiles('uv.lock') != '' }}
+        run: uv sync --locked --python 3.11 --extra dev
+
       - name: Install dependencies
-        run: |
-          if [[ -f uv.lock ]]; then
-            uv sync --locked --python 3.11 --extra dev
-          else
-            uv sync --python 3.11 --extra dev
-          fi
+        if: ${{ hashFiles('uv.lock') == '' }}
+        run: uv sync --python 3.11 --extra dev
 
       - name: Check formatting
         run: uv run ruff format --check .
@@ -37,9 +47,18 @@ jobs:
       - name: Lint
         run: uv run ruff check .
 
-  tests:
-    name: tests
-    runs-on: ubuntu-latest
+      - name: Type-check
+        if: ${{ inputs.typecheck }}
+        run: uv run mypy src tests
+
+  test_matrix:
+    name: tests (${{ matrix.target.runner }}, Python ${{ matrix.target.python }})
+    runs-on: ${{ matrix.target.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(inputs['test-targets']) }}
 
     steps:
       - name: Check out source
@@ -51,15 +70,35 @@ jobs:
         uses: astral-sh/setup-uv@v10.0.1
 
       - name: Install Python
-        run: uv python install 3.11
+        run: uv python install ${{ matrix.target.python }}
+
+      - name: Install locked dependencies
+        if: ${{ hashFiles('uv.lock') != '' }}
+        run: uv sync --locked --python ${{ matrix.target.python }} --extra dev
 
       - name: Install dependencies
-        run: |
-          if [[ -f uv.lock ]]; then
-            uv sync --locked --python 3.11 --extra dev
-          else
-            uv sync --python 3.11 --extra dev
-          fi
+        if: ${{ hashFiles('uv.lock') == '' }}
+        run: uv sync --python ${{ matrix.target.python }} --extra dev
 
       - name: Run tests
         run: uv run pytest
+
+  tests:
+    name: tests
+    if: ${{ always() }}
+    needs:
+      - test_matrix
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Require all test targets to pass
+        shell: bash
+        env:
+          TEST_MATRIX_RESULT: ${{ needs.test_matrix.result }}
+        run: |
+          if [[ "$TEST_MATRIX_RESULT" != "success" ]]; then
+            echo "Test matrix did not succeed: $TEST_MATRIX_RESULT" >&2
+            exit 1
+          fi
+
+          echo "All configured test targets passed."
